@@ -1,0 +1,98 @@
+---
+title: "CRR Model in R"
+author: "Cleopatra Mozolewski"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Cox-Ross-Rubenstein Model
+This R function only takes time steps up to (but not including) 270.
+
+Below are the variables to adjust, then the function output. Helper functions and the CRR put and call model functions are hidden in the Rmd file.
+
+```{r CRR_helperFunctions, include=FALSE}
+NchooseK <- function(N, K){ # N choose K function; limited to smaller than (270,135)
+  if(N == K | K == 0){
+    return(1)
+  }
+  num <- 1
+  if(N - K > K){
+    for(i in (N-K+1):N){
+      num <- num*i
+    }
+    num <- num / factorial(K)
+  }
+  else{
+    for(i in (K+1):N){
+      num <- num*i
+    }
+    num <- num / factorial(N-K)
+  }
+  return(num)
+}
+
+adjR <- function(r, N){ # adjusts period r to time-step r
+  return( (1+r)^(1/N) - 1)
+}
+```
+
+```{r CRR_models, include=FALSE}
+CRR_Call <- function(S, K, r, sigma, t, N){ # calculates call price using time-step r
+  dt <- t/N # time per time step
+  U <- exp(sigma*sqrt(dt)) # up factor
+  D <- 1/U # down factor
+  p <- (exp(r*dt)-D)/(U-D) # up probability
+
+  call <- 0
+  
+  for(i in N:0){ # iterates through each possible scenario and adds the value
+    nS <- S * U^i * D^(N-i)
+    if(nS <= K){
+      break;
+    }
+    call <- call + ((nS - K) * NchooseK(N,i) * p^i * (1-p)^(N-i)) / (1+r)^N
+  }
+  
+  return(call)
+}
+
+CRR_Put <- function(S, K, r, sigma, t, N){ # calculates put price using time-step r
+  dt <- t/N # time per time step
+  U <- exp(sigma*sqrt(dt)) # up factor
+  D <- 1/U # down factor
+  p <- (exp(r*dt)-D)/(U-D) # up probability
+
+  put <- 0
+  
+  for(i in 0:N){ # iterates through each possible scenario and adds the value
+    nS <- S * U^i * D^(N-i)
+    if(nS >= K){
+      break;
+    }
+    put <- put + ((K - nS) * NchooseK(N,i) * p^i * (1-p)^(N-i)) / (1+r)^N
+  }
+  
+  return(put)
+}
+```
+
+## Variables
+```{r CHANGE_ME}
+S = 100    # intial stock value
+K = 100    # strike price
+nR = .05   # period r
+sigma = .2 # volatility
+t = .5     # time to expiry
+N = 2   # number of time steps
+
+r = adjR(.05,N) # adjusting period r to time step r
+```
+
+## Output
+```{r Output, echo=FALSE}
+cat(paste("Call Price: ", CRR_Call(S, K, r, sigma, t, N), "\n"))
+cat(paste("Put Price: ", CRR_Put(S, K, r, sigma, t, N)))
+```
